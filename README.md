@@ -42,7 +42,7 @@ El botón **Ingresar** abre un diálogo con Ingresar/Crear cuenta y acceso con G
 
 **Olvidé mi contraseña** utiliza el correo escrito en Ingresar. Se muestra una respuesta general para evitar revelar si una cuenta existe. Los errores y estados de carga están en español. Google proporciona una cuenta verificada; su teléfono y dirección pueden completarse en Mi cuenta o al pedir.
 
-El botón flotante también abre el carrito y pasa por esta verificación. Los enlaces generales de contacto por WhatsApp permanecen disponibles.
+El header y la barra del carrito abren el pedido y pasan por esta verificación. En la interfaz simplificada, el botón flotante duplicado está oculto mediante CSS. Los enlaces generales de contacto por WhatsApp permanecen disponibles.
 
 Al continuar con una cuenta verificada, se guarda el perfil y la solicitud en Firestore antes de abrir WhatsApp. Si falla el guardado no se abre el mensaje. Si el navegador bloquea la ventana, el diálogo muestra un enlace para abrirlo. Debes revisar y enviar el mensaje por WhatsApp; guardar la solicitud no confirma la preparación ni cobra dinero.
 
@@ -54,7 +54,7 @@ Cada solicitud comienza con estado `pendiente_confirmacion`. Un reintento del mi
 - Nombre, celular, dirección, entrega, zona, pago y notas se recuerdan en `pacos-checkout-v1:{uid}`. La copia anterior de invitado se migra al ingresar. Cerrar sesión limpia los campos visibles y conserva el carrito. **Olvidar mis datos** elimina esa copia local, no el perfil ni el historial en Firebase.
 - `users/{uid}` guarda `name`, `email`, `phone`, `address`, `createdAt`. Cada usuario puede consultar y actualizar su propio perfil; el correo debe coincidir con su cuenta y la fecha de creación se conserva.
 - `orders/{orderId}` guarda `uid`, `products` (IDs producto:variante), `quantities`, `unitPrices`, `subtotal`, `deliveryCost`, `total`, `customer`, `phone`, `delivery`, `address`, `zone`, `payment`, `notes`, `status`, `createdAt`.
-- Las reglas deniegan acceso público, datos ajenos, campos extra, tipos o cantidades inválidas y pedidos sin correo verificado. Los clientes no pueden modificar o borrar solicitudes. El historial exige filtrar el UID propio y limitarse a 50 resultados.
+- Las reglas de perfiles y pedidos deniegan acceso público, datos ajenos, campos extra, tipos o cantidades inválidas y pedidos sin correo verificado. Los clientes no pueden modificar o borrar solicitudes. El historial exige filtrar el UID propio y limitarse a 50 resultados.
 
 Los importes son presupuestos enviados por el cliente y deben confirmarse con el restaurante. Las reglas validan opciones y precios permitidos, tipos, límites y la suma subtotal + domicilio, pero no recalculan cada línea ni su subtotal en un servidor. No uses estos documentos como cobros o facturas aprobadas; eso requiere una operación de servidor que calcule y confirme precios.
 
@@ -67,7 +67,7 @@ Los importes son presupuestos enviados por el cliente y deben confirmarse con el
 3. En Authentication → Configuración → Política de contraseñas, activa Exigir aplicación y establece mínimo ocho caracteres.
 4. En Dominios autorizados añade `localhost`, tu dominio de publicación y el dominio de `authDomain`. En este proyecto están `localhost`, `app-prueba-c6cd9.firebaseapp.com`, `app-prueba-c6cd9.web.app`, `pacos-arauca.web.app` y `pacos-arauca.firebaseapp.com`.
 5. En Plantillas selecciona español (Latinoamérica). Personaliza remitente y asunto si la consola permite editarlos. **Limitación actual de APP PRUEBA:** Firebase aceptó español, pero rechazó el remitente/asunto personalizados y mostró que este proyecto no puede actualizar esas plantillas por ahora. Para habilitarlos sigue el enlace de [soporte de Firebase](https://firebase.google.com/support/troubleshooter/auth/email/help); después usa remitente Paco’s Burguer & Pizzas y asunto Verifica tu correo en Paco’s. No se ha enviado una solicitud de soporte automáticamente.
-6. Crea Firestore Standard predeterminado en modo producción. Elige su región antes de crearlo. No actives reglas públicas.
+6. Crea Firestore Standard predeterminado en modo producción. Elige su región antes de crearlo. Mantén privados perfiles y pedidos; únicamente la colección de reseñas tiene lectura pública limitada.
 7. Ajusta `.firebaserc`, el sitio de `firebase.json`, `siteUrl` de `firebase-config.js` y canonical/og:url/URL JSON-LD de `index.html` a tu proyecto y dominio.
 8. Autentica la CLI y despliega:
 
@@ -96,8 +96,9 @@ Si cambia el dominio, actualiza los dominios autorizados, `siteUrl`, canonical, 
 - `index.html`, `style.css`, `script.js`: estructura, estilos, accesibilidad, menú, carrito y flujo de pedido.
 - `catalog.js`: fuente del menú y categorías.
 - `account.js`: formularios, sesión, verificación, perfil e historial.
+- `reviews.js`: reseñas públicas, estrellas, foto comprimida y edición/borrado del autor.
 - `firebase-service.js`, `firebase-config.js`: SDK modular, operaciones e identificadores públicos.
-- `firestore.rules`, `firestore.indexes.json`: permisos, validaciones e índice del historial.
+- `firestore.rules`, `firestore.indexes.json`: permisos, validaciones, índice del historial y exclusiones de índices para foto/texto de las reseñas.
 - `firebase.json`, `.firebaserc`: despliegue y emuladores.
 - `scripts/dev.mjs`, `scripts/sync-menu.mjs`, `scripts/sync-rules.mjs`, `scripts/build.mjs`: desarrollo, sincronización y publicación.
 - `tests/firestore.test.mjs`: pruebas del aislamiento y validaciones de datos.
@@ -106,3 +107,27 @@ Si cambia el dominio, actualiza los dominios autorizados, `siteUrl`, canonical, 
 Los originales permanecen en `respaldos/antes-mejoras-firebase` y están excluidos de Git y Hosting.
 
 Documentación: [Firebase web](https://firebase.google.com/docs/web/setup), [cuentas y verificación](https://firebase.google.com/docs/auth/web/manage-users), [reglas de Firestore](https://firebase.google.com/docs/firestore/security/get-started).
+
+## Interfaz simplificada y reversión
+
+La estructura visible es anuncio discreto → hero → menú → Nosotros con Cómo pedir → galería de dos fotos → reseñas cuando existan → contacto → footer. La cinta, el sello/marco del hero, los textos decorativos, la foto duplicada de Nosotros y el CTA final se conservan con la clase **ui-optional**. Las otras dos fotos de la galería siguen disponibles en Ver más fotos.
+
+El cuerpo usa **ui-clean** y los estilos correspondientes están al final de style.css. Quitar esta clase vuelve a mostrar los adornos conservados; para restaurar exactamente la estructura anterior, usa el commit anterior o **respaldos/antes-simplificacion-ui**. No restaures únicamente script.js si quieres conservar las reseñas: index.html y reviews.js deben mantenerse coordinados.
+
+Las tarjetas muestran imagen, nombre y precio Desde. Ingredientes y opciones permanecen en el diálogo y también se incluyen en las búsquedas. La barra del carrito añade espacio al final de la página para no tapar el footer. El hero conserva Ver menú como acción principal; en móvil Pedir ahora está dentro del menú de navegación y Ver mi pedido permanece en el hero.
+
+## Publicar reseñas con estrellas y foto
+
+1. Pulsa **Escribir una reseña** en el footer o en la sección de opiniones.
+2. Ingresa y verifica tu correo si aún no lo has hecho.
+3. Elige un nombre público (2–50 caracteres), de 1 a 5 estrellas y un comentario de 10–700 caracteres.
+4. Opcionalmente añade una foto JPG, PNG o WebP de hasta 5 MB. Se convierte a JPEG, con lado mayor de hasta 640 px y máximo 88.000 caracteres de datos (aproximadamente 64 KiB). Al convertirla se descartan los metadatos originales.
+5. Pulsa Publicar reseña. Aparece inmediatamente y puedes volver al mismo diálogo para editarla, quitar la foto o eliminarla con confirmación.
+
+Cada cuenta mantiene una reseña en **reviews/{uid}**, con uid, name, text, rating, photo, createdAt y updatedAt. Solo estos documentos son públicos. El diálogo informa que nombre/comentario/estrellas/foto se harán públicos; correo, celular, dirección y pedidos permanecen en sus colecciones privadas. Se muestran doce reseñas por página, ordenadas por la última actualización. No se presenta una calificación global ni una compra verificada que no se haya comprobado.
+
+Las reglas exigen correo verificado para crear/editar, UID propio, fechas del servidor, estrellas enteras de 1 a 5, límites de texto/foto y campos estrictamente permitidos. El autor puede eliminar su documento. La foto y el comentario no se indexan. Los comentarios se presentan como texto, sin ejecutar HTML.
+
+Se guardan miniaturas pequeñas dentro de Firestore para funcionar con el plan Spark actual. No está pensado para álbumes ni imágenes de alta resolución: las fotos cuentan para almacenamiento y transferencias de Firestore, sujetas a sus cuotas. Para ampliar esta función migra las fotos a Storage; [Firebase Storage exige el plan Blaze](https://firebase.google.com/docs/storage/faqs-storage-changes-announced-sept-2024?hl=es-419). No se activó facturación.
+
+La publicación es inmediata, sin aprobación previa. Como propietario puedes retirar una reseña desde Firebase console → Firestore Database → reviews → documento → eliminar. Para exigir moderación, añade estados pendiente/aprobada, un rol de administrador protegido y una consulta pública que solo devuelva las aprobadas; no basta con ocultarlas usando CSS.

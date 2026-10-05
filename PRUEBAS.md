@@ -50,3 +50,32 @@ Los correos reales, el consentimiento de Google y la recepción en WhatsApp requ
 Firebase bloqueó la personalización de remitente/asunto en APP PRUEBA; el idioma español sí está aplicado. El README contiene el enlace de soporte y el cambio pendiente cuando Firebase lo habilite.
 
 Un registro en Firestore es una solicitud pendiente. No prueba que WhatsApp se haya enviado ni que el restaurante haya confirmado el pedido. Los precios se calculan en la página; el restaurante debe verificar el presupuesto. Las imágenes siguen dependiendo de sus URLs originales en pacosarauca.com.
+
+## Simplificación visual y reseñas · 5 de octubre de 2026
+
+- Interfaz compacta a 360, 390, 640, 768, 980, 1024 y 1440 px; categorías, productos, cuenta, carrito y diálogo de reseña.
+- Las 13 pruebas de reglas incluyen lectura pública limitada de reseñas, escritura de autor verificado, rechazo de cambios ajenos, estrellas/tamaños/tipos inválidos y ausencia de campos privados en la colección pública.
+- Reseñas y fotos se prueban solo con datos ficticios en emuladores. No se publican testimonios inventados en la web real.
+
+Checklist adicional del propietario:
+
+1. En móvil, abre/cierra navegación con el botón y Escape; Pedir ahora debe abrir el carrito.
+2. Busca también por ingrediente, entra a una categoría y abre un producto: ingredientes y variantes deben aparecer en su diálogo.
+3. Añade productos, recarga y revisa cantidades, notas y entrega; la barra no debe cubrir el footer.
+4. Comprueba Ver más fotos y ampliar cada imagen; activa Reducir movimiento en el dispositivo.
+5. Publica tu reseña real con 1–5 estrellas y una foto propia, con correo verificado. Comprueba desde una ventana sin sesión que se ve.
+6. Edita la reseña, quita/cambia la foto y comprueba que sigue siendo una sola reseña. Cancela una eliminación y luego confirma si quieres retirarla.
+7. Otra cuenta debe poder publicar su propia reseña, pero no cambiar la tuya. Sin sesión o sin correo verificado no debe permitir publicar.
+
+Los originales previos a la simplificación están en respaldos/antes-simplificacion-ui; ui-optional conserva los bloques decorativos. El menú, los precios, los metadatos y los datos reales de contacto se mantienen.
+
+
+Resultado del recorrido automático de esta actualización:
+
+- [x] Los siete anchos conservan navegación, búsqueda por ingrediente, categorías, variantes, paginación y retorno del foco.
+- [x] Registro, verificación/reenvío, login, recuperación, Google simulado, pedido/WhatsApp interceptado, historial, logout y aislamiento de datos.
+- [x] Reseña con estrellas por teclado, rechazo de SVG, foto comprimida válida, comentario mostrado como texto, edición, ampliación de imagen, quitar foto y eliminación confirmada.
+- [x] Galería de dos fotos y las dos adicionales desplegables; opiniones vacías ocultas.
+- [x] Header sin desborde al ampliar texto al 200 %, footer separado del carrito y preferencias de movimiento reducido.
+- [x] Head completo (meta tags y JSON-LD) idéntico al respaldo; 103 productos y precios de todas las variantes intactos.
+- [x] Trece pruebas de reglas aprobadas y ningún error JavaScript en los recorridos automatizados.
