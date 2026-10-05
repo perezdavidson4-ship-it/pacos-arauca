@@ -1,0 +1,9 @@
+{
+  "name": "pacos-arauca",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync:menu": "node scripts/sync-menu.mjs",
+    "dev": "node scripts/dev.mjs"
+  }
+}
