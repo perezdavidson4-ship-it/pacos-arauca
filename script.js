@@ -1,4 +1,6 @@
 import { CATALOG, CATEGORIES } from "./catalog.js";
+import { initializeAccount, accountReady, getSession, showAccount, refreshVerification } from "./account.js";
+import { saveProfile, storeOrder, spanishError } from "./firebase-service.js";
 
 const PACOS = Object.freeze({ whatsapp: "573132009287", menu: "https://www.pacosarauca.com/", facebook: "https://www.facebook.com/pacosburger/" });
 // Agrega únicamente testimonios reales autorizados: { text: "…", author: "…" }.
@@ -311,7 +313,7 @@ const dialogs = $$("dialog");
 const orderDialog = $("#order-dialog");
 const orderForm = $("#order-form");
 const orderFeedback = $("#order-feedback");
-function openDialog(dialog) { closeNav(); document.body.classList.add("dialog-open"); dialog.showModal(); }
+function openDialog(dialog) { closeNav(); document.body.classList.add("dialog-open"); if (!dialog.open) dialog.showModal(); }
 dialogs.forEach((dialog) => {
   dialog.addEventListener("close", () => { if (!dialogs.some((item) => item.open)) document.body.classList.remove("dialog-open"); if (dialog.id === "gallery-dialog") $("#gallery-preview").removeAttribute("src"); });
   dialog.addEventListener("click", (event) => { if (event.target !== dialog) return; const bounds = dialog.getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) dialog.close(); });
@@ -320,20 +322,84 @@ dialogs.forEach((dialog) => {
 $$("[data-order]").forEach((button) => button.addEventListener("click", () => { renderCart(); orderFeedback.hidden = true; openDialog(orderDialog); }));
 function updateDelivery() { const delivery = orderForm.elements.delivery.value; $("#delivery-fields").hidden = delivery !== "domicilio"; orderForm.elements.address.required = delivery === "domicilio"; orderForm.elements.address.disabled = delivery !== "domicilio"; orderForm.elements.zone.disabled = delivery !== "domicilio"; }
 $$('input[name="delivery"]').forEach((input) => input.addEventListener("change", updateDelivery)); updateDelivery();
-orderForm.addEventListener("submit", (event) => {
-  event.preventDefault(); if (!cart.length) return; if (!orderForm.reportValidity()) return;
-  const data = new FormData(orderForm); const value = (key) => String(data.get(key) || "").trim();
-  const digits = value("phone").replace(/[^0-9]/g, "");
-  if (digits.length < 10 || digits.length > 15) { orderFeedback.textContent = "Escribe un celular válido con entre 10 y 15 dígitos."; orderFeedback.hidden = false; return; }
-  if (!value("customer") || (value("delivery") === "domicilio" && !value("address"))) { orderFeedback.textContent = "Completa tu nombre, el pedido y la dirección cuando corresponda."; orderFeedback.hidden = false; return; }
-  const lines = ["¡Hola, Paco’s! Quiero solicitar un pedido.", "", `Nombre: ${value("customer")}`, `Celular: ${value("phone")}`, "Pedido:", ...cartLines(), "", `Subtotal: ${money(cartSubtotal())}`, `Domicilio: ${money(deliveryFee())}`, `Total: ${money(cartSubtotal() + deliveryFee())}`, "", `Entrega: ${value("delivery") === "domicilio" ? "Domicilio" : "Recoger en el local"}`];
-  if (value("delivery") === "domicilio") lines.push(`Dirección: ${value("address")}`, `Zona: ${value("zone") === "urbano" ? "Urbana (domicilio $5.000)" : "Fuera de zona urbana (domicilio $6.000)"}`);
-  lines.push(`Pago: ${value("payment")}`); if (value("notes")) lines.push(`Notas: ${value("notes")}`); lines.push("", "Por favor, confírmenme disponibilidad y tiempo de entrega. Gracias.");
-  const url = `https://wa.me/${PACOS.whatsapp}?text=${encodeURIComponent(lines.join("\n"))}`;
-  window.open(url, "_blank", "noopener,noreferrer");
-  const fallback = document.createElement("a"); fallback.href = url; fallback.target = "_blank"; fallback.rel = "noopener noreferrer"; fallback.textContent = "abrir el mensaje en WhatsApp";
-  orderFeedback.replaceChildren(document.createTextNode("Revisa y envía tu solicitud en WhatsApp. Si no se abrió, puedes "), fallback, document.createTextNode(".")); orderFeedback.hidden = false;
+let orderBusy = false;
+const pendingRequests = new Map();
+function requestId(uid, values) {
+  const key = `pacos-order-request:${uid}`;
+  const fingerprint = JSON.stringify(values);
+  if(pendingRequests.get(key)?.fingerprint === fingerprint) return pendingRequests.get(key).id;
+  try {
+    const saved = JSON.parse(localStorage.getItem(key) || "null");
+    if (saved?.fingerprint === fingerprint && /^[a-f0-9-]{36}$/.test(saved.id)) {pendingRequests.set(key,saved);return saved.id;}
+  } catch {}
+  const id = crypto.randomUUID();
+  pendingRequests.set(key,{id,fingerprint});
+  try { localStorage.setItem(key, JSON.stringify({id,fingerprint})); } catch {}
+  return id;
+}
+orderForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  if (orderBusy || !cart.length || !orderForm.reportValidity()) return;
+  const data = new FormData(orderForm);
+  const value = key => String(data.get(key) || "").trim();
+  const phone = value("phone").replace(/\D/g, "");
+  if (phone.length < 10 || phone.length > 15) {
+    orderFeedback.textContent = "Escribe un celular válido con entre 10 y 15 dígitos.";
+    orderFeedback.hidden = false;
+    return;
+  }
+  const values = {
+    products: cart.map(line => `${line.productId}:${line.variantId}`),
+    quantities: cart.map(line => line.quantity),
+    unitPrices: cart.map(line => cartProduct(line).variant.price),
+    subtotal: cartSubtotal(), deliveryCost: deliveryFee(), total: cartSubtotal() + deliveryFee(),
+    customer: value("customer"), phone, delivery: value("delivery"),
+    address: value("delivery") === "domicilio" ? value("address") : "",
+    zone: value("delivery") === "domicilio" ? value("zone") : "",
+    payment: value("payment"), notes: value("notes")
+  };
+  const productLines = cartLines();
+  let popup;
+  orderBusy = true;
+  const submit = $("#order-submit");
+  submit.disabled = true; orderForm.setAttribute("aria-busy", "true");
+  orderFeedback.textContent = "Comprobando tu cuenta…"; orderFeedback.hidden = false;
+  try {
+    await accountReady();
+    const {user} = getSession();
+    if (!user) {showAccount(); throw {code:"app/signed-out"};}
+    if (!await refreshVerification()) {showAccount(); throw {code:"app/unverified"};}
+    // El enlace visible permite continuar si el navegador bloquea esta ventana.
+    popup = window.open("about:blank", "_blank");
+    if (popup) {popup.opener = null; popup.document.title = "Preparando tu pedido"; popup.document.body.textContent = "Guardando tu solicitud de Paco’s…";}
+    orderFeedback.textContent = "Guardando tu pedido…";
+    await saveProfile({name:values.customer,phone,address:orderForm.elements.address.value.trim()},user.uid);
+    if (getSession().user?.uid !== user.uid) throw {code:"app/signed-out"};
+    const id = requestId(user.uid, values);
+    await storeOrder(id, values, user.uid);
+    saveCheckout();
+    const lines = ["¡Hola, Paco’s! Quiero solicitar un pedido.",`Solicitud: ${id}`,"",`Nombre: ${values.customer}`,`Celular: ${phone}`,"Pedido:",...productLines,"",`Subtotal: ${money(values.subtotal)}`,`Domicilio: ${money(values.deliveryCost)}`,`Total: ${money(values.total)}`,"",`Entrega: ${values.delivery === "domicilio" ? "Domicilio" : "Recoger en el local"}`];
+    if(values.delivery === "domicilio") lines.push(`Dirección: ${values.address}`,`Zona: ${values.zone === "urbano" ? "Urbana (domicilio $5.000)" : "Fuera de zona urbana (domicilio $6.000)"}`);
+    lines.push(`Pago: ${values.payment}`);
+    if(values.notes)lines.push(`Notas: ${values.notes}`);
+    lines.push("","Por favor, confírmenme disponibilidad y tiempo de entrega. Gracias.");
+    const url = `https://wa.me/${PACOS.whatsapp}?text=${encodeURIComponent(lines.join("\n"))}`;
+    if(popup && !popup.closed)popup.location.href = url;
+    const fallback = document.createElement("a"); fallback.href = url; fallback.target = "_blank"; fallback.rel = "noopener noreferrer"; fallback.textContent = "abrir el mensaje en WhatsApp";
+    const another = makeElement("button", "text-link forget-checkout", "Crear otra solicitud con este carrito"); another.type = "button";
+    another.addEventListener("click",()=>{
+      try{localStorage.removeItem(`pacos-order-request:${user.uid}`);}catch{}
+      pendingRequests.delete(`pacos-order-request:${user.uid}`);
+      orderFeedback.textContent = "Puedes crear otra solicitud al continuar. Confirma con el restaurante si necesitas repetir el pedido.";
+      submit.focus();
+    });
+    orderFeedback.replaceChildren(document.createTextNode(`Solicitud ${id.slice(-8).toUpperCase()} guardada. Revisa y envía el mensaje en WhatsApp. Si no se abrió, puedes `),fallback,document.createTextNode(". Volver a continuar conserva esta solicitud para evitar duplicarla."),another);
+  } catch(error) {
+    if(popup && !popup.closed)popup.close();
+    orderFeedback.textContent = spanishError(error);
+  } finally {orderBusy=false;submit.disabled=false;orderForm.setAttribute("aria-busy","false");}
 });
+
 
 function imageFallback(img) { if (img.closest(".brand")) { img.style.display = "none"; return; } const surface = img.parentElement; surface.classList.add("image-unavailable"); surface.dataset.imageLabel = img.alt || "Paco’s"; }
 $$("img").forEach((img) => { img.addEventListener("error", () => imageFallback(img)); img.addEventListener("load", () => img.parentElement.classList.remove("image-unavailable")); if (img.getAttribute("src") && img.complete && img.naturalWidth === 0) imageFallback(img); });
@@ -347,7 +413,9 @@ $("#year").textContent = new Date().getFullYear();
 $("#browse-products").addEventListener("click",()=>{orderDialog.close();showCategories(false);$("#menu").scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});});
 
 // Solo datos de entrega y notas: nunca contraseñas ni credenciales.
-const CHECKOUT_KEY = "pacos-checkout-v1";
+let CHECKOUT_KEY = "pacos-checkout-v1";
+let checkoutOwner = null;
+let checkoutInitialized = false;
 const checkoutLimits = { customer: 80, phone: 20, address: 180, notes: 500 };
 const checkoutOptions = { delivery: ["domicilio", "recoger"], zone: ["urbano", "fuera"], payment: ["Efectivo", "Transferencia (Nequi, Bre-B o Daviplata)"] };
 function saveCheckout() {
@@ -374,3 +442,22 @@ $("#forget-checkout").addEventListener("click", () => {
   orderFeedback.textContent = "Datos de entrega y notas borrados de este dispositivo.";
   orderFeedback.hidden = false;
 });
+
+// Cada sesión usa su propia copia local; cerrar sesión limpia los campos visibles.
+initializeAccount({openDialog,onProfile(user,profile){
+  const uid=user?.uid || null;
+  if(!checkoutInitialized || uid!==checkoutOwner){
+    const migratingGuest=checkoutOwner===null && !!uid;
+    let guest;
+    if(migratingGuest){try{guest=localStorage.getItem("pacos-checkout-v1");}catch{}}
+    checkoutOwner=uid;checkoutInitialized=true;CHECKOUT_KEY=uid ? `pacos-checkout-v1:${uid}` : "pacos-checkout-v1";
+    orderForm.reset();
+    if(migratingGuest && guest){try{if(!localStorage.getItem(CHECKOUT_KEY))localStorage.setItem(CHECKOUT_KEY,guest);localStorage.removeItem("pacos-checkout-v1");}catch{}}
+    restoreCheckout();
+  }
+  if(user && profile){
+    for(const [field,key] of [["customer","name"],["phone","phone"],["address","address"]])if(!orderForm.elements[field].value)orderForm.elements[field].value=profile[key] || "";
+  }
+  updateDelivery();renderCart();
+}}).catch(()=>{});
+if("ResizeObserver" in window)new ResizeObserver(()=>document.documentElement.style.setProperty("--header-offset", `${header.getBoundingClientRect().height+16}px`)).observe(header);

@@ -3,7 +3,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "sync:menu": "node scripts/sync-menu.mjs",
-    "dev": "node scripts/dev.mjs"
+    "sync:menu": "node scripts/sync-menu.mjs && node scripts/sync-rules.mjs",
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs",
+    "test:rules": "node --test tests/firestore.test.mjs"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "5.0.2",
+    "firebase": "12.19.0"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "1.13.6"
   }
 }

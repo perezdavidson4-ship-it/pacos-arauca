@@ -1,0 +1,58 @@
+// Generado con npm run sync:menu. Fuente del catálogo: catalog.js.
+// Las solicitudes son presupuestos del cliente; el restaurante confirma el valor.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function owner(uid) { return signedIn() && request.auth.uid == uid; }
+    function shortText(value, max) { return value is string && value.size() <= max; }
+    function validProfile(d) {
+      return d.keys().hasAll(['name','email','phone','address','createdAt'])
+        && d.keys().hasOnly(['name','email','phone','address','createdAt'])
+        && shortText(d.name,80) && d.name.size() > 0
+        && shortText(d.email,254) && d.email == request.auth.token.email
+        && d.phone is string && (d.phone == '' || d.phone.matches('^[0-9]{10,15}$'))
+        && shortText(d.address,180) && d.createdAt is timestamp;
+    }
+    function validOrder(d) {
+      return d.keys().hasAll(['uid','products','quantities','unitPrices','subtotal','deliveryCost','total','customer','phone','delivery','address','zone','payment','notes','status','createdAt'])
+        && d.keys().hasOnly(['uid','products','quantities','unitPrices','subtotal','deliveryCost','total','customer','phone','delivery','address','zone','payment','notes','status','createdAt'])
+        && d.uid == request.auth.uid
+        && d.products is list && d.products.size() > 0 && d.products.size() <= 174
+        && d.products.toSet().size() == d.products.size()
+        && d.products.toSet().difference(["product-1:original","product-2:original","product-3:original","product-4:original","product-5:original","product-6:original","product-7:original","product-8:original","product-9:original","product-10:original","product-11:original","product-12:original","product-13:original","product-14:original","product-15:original","product-16:original","product-17:original","product-18:original","product-19:original","product-20:original","product-21:original","product-22:original","product-23:original","product-29:option-0","product-29:option-1","product-29:option-2","product-29:option-3","product-29:option-4","product-30:option-0","product-30:option-1","product-30:option-2","product-31:option-0","product-31:option-1","product-31:option-2","product-32:option-0","product-32:option-1","product-32:option-2","product-33:option-0","product-33:option-1","product-33:option-2","product-34:option-0","product-34:option-1","product-34:option-2","product-34:option-3","product-35:option-0","product-35:option-1","product-35:option-2","product-35:option-3","product-36:option-0","product-36:option-1","product-36:option-2","product-36:option-3","product-37:option-0","product-37:option-1","product-37:option-2","product-37:option-3","product-38:option-0","product-38:option-1","product-38:option-2","product-38:option-3","product-39:option-0","product-39:option-1","product-39:option-2","product-39:option-3","product-40:option-0","product-40:option-1","product-40:option-2","product-40:option-3","product-41:option-0","product-41:option-1","product-41:option-2","product-41:option-3","product-42:option-0","product-42:option-1","product-42:option-2","product-42:option-3","product-43:option-0","product-43:option-1","product-43:option-2","product-43:option-3","product-44:option-0","product-44:option-1","product-44:option-2","product-44:option-3","product-50:original","product-51:original","product-52:original","product-53:original","product-54:original","product-55:original","product-56:original","product-57:original","product-60:original","product-61:original","product-63:original","product-62:original","product-58:option-0","product-58:option-1","product-59:original","product-24:original","product-25:original","product-27:original","product-26:original","product-28:original","product-45:option-0","product-45:option-1","product-46:option-0","product-46:option-1","product-47:option-0","product-47:option-1","product-48:option-0","product-48:option-1","product-49:option-0","product-49:option-1","product-64:original","product-65:original","product-66:option-0","product-66:option-1","product-66:option-2","product-66:option-3","product-66:option-4","product-66:option-5","product-66:option-6","product-66:option-7","product-66:option-8","product-66:option-9","product-66:option-10","product-67:option-0","product-67:option-1","product-67:option-2","product-67:option-3","product-67:option-4","product-67:option-5","product-67:option-6","product-67:option-7","product-67:option-8","product-67:option-9","product-67:option-10","product-68:original","product-85:original","product-88:original","product-71:original","product-72:original","product-73:original","product-74:original","product-75:original","product-76:original","product-77:original","product-78:original","product-79:original","product-80:original","product-81:original","product-82:original","product-83:original","product-84:original","product-69:original","product-86:original","product-87:original","product-89:original","product-103:original","product-90:original","product-91:original","product-92:original","product-93:original","product-94:original","product-95:original","product-96:original","product-97:original","product-98:original","product-99:original","product-100:original","product-101:original","product-102:original","product-70:original"].toSet()).size() == 0
+        && d.quantities is list && d.quantities.size() == d.products.size()
+        && d.quantities.toSet().difference([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99].toSet()).size() == 0
+        && d.unitPrices is list && d.unitPrices.size() == d.products.size()
+        && d.unitPrices.toSet().difference([10000,17000,20000,22000,25000,26000,30000,34000,40000,45000,28000,44000,66000,88000,18000,24000,36000,13000,23000,35000,43000,15000,54000,58000,37000,52000,68000,70000,55000,74000,38000,42000,29000,39000,7000,16000,14000,8000,3000,5000,4000,6000,12000].toSet()).size() == 0
+        && d.subtotal is int && d.subtotal > 0 && d.subtotal <= 433818000
+        && d.deliveryCost is int && d.total is int && d.total == d.subtotal + d.deliveryCost
+        && shortText(d.customer,80) && d.customer.size() > 0
+        && d.phone is string && d.phone.matches('^[0-9]{10,15}$')
+        && d.delivery in ['domicilio','recoger']
+        && shortText(d.address,180)
+        && ((d.delivery == 'domicilio' && d.address.size() > 0 && d.zone in ['urbano','fuera']
+          && d.deliveryCost == (d.zone == 'urbano' ? 5000 : 6000))
+          || (d.delivery == 'recoger' && d.address == '' && d.zone == '' && d.deliveryCost == 0))
+        && d.payment in ['Efectivo','Transferencia (Nequi, Bre-B o Daviplata)']
+        && shortText(d.notes,500)
+        && d.status == 'pendiente_confirmacion'
+        && d.createdAt is timestamp && d.createdAt == request.time;
+    }
+    match /users/{uid} {
+      allow get: if owner(uid);
+      allow create: if owner(uid) && validProfile(request.resource.data) && request.resource.data.createdAt == request.time;
+      allow update: if owner(uid) && validProfile(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow list, delete: if false;
+    }
+    match /orders/{orderId} {
+      // Una transacción puede comprobar que el ID nuevo no existe.
+      allow get: if signedIn() && (resource == null || resource.data.uid == request.auth.uid);
+      allow list: if signedIn() && resource.data.uid == request.auth.uid && request.query.limit <= 50;
+      allow create: if signedIn() && request.auth.token.email_verified == true && validOrder(request.resource.data);
+      allow update, delete: if false;
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

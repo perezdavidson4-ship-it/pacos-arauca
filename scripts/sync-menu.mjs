@@ -10,7 +10,7 @@ html = html.replace(pattern, (_, start, body, end) => start + '\n' + JSON.string
 for (const category of CATEGORIES) {
   const count = CATALOG.filter(p => p.category === category).length;
   const escaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const card = new RegExp('(<button[^>]*data-category-open="' + escaped + '"[\s\S]*?<\/button>)');
+  const card = new RegExp('(<button[^>]*data-category-open="' + escaped + '"[\\s\\S]*?<\/button>)');
   html = html.replace(card, text => text.replace(/aria-label="[^"]*"/, 'aria-label="Ver ' + category + ': ' + count + ' productos"').replace(/<span>\d+ productos<\/span>/, '<span>' + count + ' productos</span>'));
 }
 fs.writeFileSync(url, html);
