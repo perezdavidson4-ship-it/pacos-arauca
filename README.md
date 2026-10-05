@@ -42,6 +42,8 @@ El botón **Ingresar** abre un diálogo con Ingresar/Crear cuenta y acceso con G
 
 **Olvidé mi contraseña** utiliza el correo escrito en Ingresar. Se muestra una respuesta general para evitar revelar si una cuenta existe. Los errores y estados de carga están en español. Google proporciona una cuenta verificada; su teléfono y dirección pueden completarse en Mi cuenta o al pedir.
 
+El botón flotante también abre el carrito y pasa por esta verificación. Los enlaces generales de contacto por WhatsApp permanecen disponibles.
+
 Al continuar con una cuenta verificada, se guarda el perfil y la solicitud en Firestore antes de abrir WhatsApp. Si falla el guardado no se abre el mensaje. Si el navegador bloquea la ventana, el diálogo muestra un enlace para abrirlo. Debes revisar y enviar el mensaje por WhatsApp; guardar la solicitud no confirma la preparación ni cobra dinero.
 
 Cada solicitud comienza con estado `pendiente_confirmacion`. Un reintento del mismo carrito y datos conserva su ID para evitar duplicados. **Crear otra solicitud con este carrito** permite repetirla expresamente. **Mis pedidos** muestra las últimas 50 solicitudes propias, ordenadas por fecha, con precio guardado y total solicitado.

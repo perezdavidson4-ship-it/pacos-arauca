@@ -36,6 +36,8 @@ Los correos reales, el consentimiento de Google y la recepción en WhatsApp requ
 
 ## Correcciones adicionales aplicadas
 
+- El botón flotante de pedido ahora abre el carrito para pasar por la cuenta verificada; el contacto general por WhatsApp sigue disponible.
+
 - El foco del carrito se perdía al reconstruir controles; ahora vuelve al control equivalente o al siguiente disponible.
 - Cargar más productos dejaba el foco atrás; ahora pasa al primer producto nuevo.
 - JSON-LD y contadores se regeneran desde el catálogo para evitar divergencias futuras; se corrigió la expresión de búsqueda del generador.
