@@ -1,3 +1,4 @@
+import { initializeReviews } from './reviews.js';
 import { CATALOG, CATEGORIES } from "./catalog.js";
 import { initializeAccount, accountReady, getSession, showAccount, refreshVerification } from "./account.js";
 import { saveProfile, storeOrder, spanishError } from "./firebase-service.js";
@@ -24,6 +25,13 @@ window.matchMedia("(min-width: 981px)").addEventListener("change", (event) => { 
 const header = $("#site-header");
 function updateHeader() { header.classList.toggle("is-scrolled", window.scrollY > 30); }
 window.addEventListener("scroll", updateHeader, { passive: true }); updateHeader();
+// Un solo botón naranja: el header es discreto mientras se ve Ver menú o el carrito.
+if ("IntersectionObserver" in window) {
+  const heroActionObserver = new IntersectionObserver(([entry]) => {
+    document.body.classList.toggle("hero-in-view", entry.isIntersecting);
+  }, { rootMargin: "-80px 0px 0px 0px" });
+  heroActionObserver.observe($(".hero-actions"));
+} else document.body.classList.remove("hero-in-view");
 if ("IntersectionObserver" in window) {
   const observer = new IntersectionObserver((entries) => {
     for (const entry of entries) { if (!entry.isIntersecting) continue; $$('a[href^="#"]', nav).forEach((link) => { const active = link.getAttribute("href") === `#${entry.target.id}`; link.classList.toggle("is-active", active); if (active) link.setAttribute("aria-current", "location"); else link.removeAttribute("aria-current"); }); }
@@ -110,6 +118,7 @@ function renderCart() {
   $("#cart-totals").hidden = cart.length === 0;
   $("#checkout-fields").hidden = cart.length === 0;
   $("#cart-bar").hidden = cart.length === 0;
+  document.body.classList.toggle("has-cart", cart.length > 0);
   $("#cart-bar-label").textContent = `${count} ${count === 1 ? "producto" : "productos"} · ${money(cartSubtotal())}`;
   cart.forEach((line, index) => {
     const { product, variant } = cartProduct(line);
@@ -160,7 +169,7 @@ function setMenuView(mode) {
   $("#category-products").hidden = mode === "categories";
   $("#menu").classList.toggle("is-browsing-products", mode === "products");
   $("#menu").setAttribute("aria-labelledby", mode === "categories" ? "menu-title" : "category-products-title");
-  $("#menu-discovery-copy").textContent = mode === "categories" ? "Nueve categorías. Un montón de buenos antojos." : "Encuentra tu favorito por nombre, ingrediente o sabor.";
+  $("#menu-discovery-copy").textContent = "Busca por nombre, ingrediente o sabor.";
 }
 function showCategories(restoreFocus = true) {
   activeFilter = "todos"; visibleLimit = PAGE_SIZE; search.value = ""; searchFromCategories = false;
@@ -174,7 +183,7 @@ function showCategories(restoreFocus = true) {
 }
 function syncCategoryHeading(products) {
   const isSearch = !!normalize(search.value);
-  $("#category-products-title").textContent = isSearch ? "Tu búsqueda." : activeFilter === "todos" ? "Toda la carta." : activeFilter + ".";
+  $("#category-products-title").textContent = isSearch ? "Resultados de búsqueda" : activeFilter === "todos" ? "Todo el menú" : activeFilter;
   $("#category-products-kicker").textContent = isSearch ? "ENCUENTRA TU ANTOJO" : "HECHO PARA PROVOCAR";
   $("#category-products-count").textContent = `${products.length} ${products.length === 1 ? "producto" : "productos"}${activeFilter !== "todos" ? " en " + activeFilter.toLowerCase() : " para elegir"}`;
   search.placeholder = activeFilter === "todos" ? "Busca tu antojo…" : `Buscar en ${activeFilter.toLowerCase()}…`;
@@ -200,7 +209,7 @@ function renderProducts() {
     const name = makeElement("span", "product-name", product.name);
     const description = makeElement("span", "product-description", product.description);
     const lowest = Math.min(...product.variants.map(v => v.price));
-    const price = makeElement("strong", "product-price", `${new Set(product.variants.map(v => v.price)).size > 1 ? "Desde " : ""}${money(lowest)}`);
+    const price = makeElement("strong", "product-price", `Desde ${money(lowest)}`);
     const foot = makeElement("span", "product-card-foot");
     foot.append(makeElement("span", "", product.variants.length > 1 ? `Elegir ${product.variantType === "flavor" ? "sabor" : "tamaño"}` : "Ver producto"));
     const arrow = document.createElementNS("http://www.w3.org/2000/svg", "svg"); arrow.setAttribute("class", "icon"); arrow.setAttribute("aria-hidden", "true");
@@ -407,7 +416,8 @@ $$("[data-gallery]").forEach((button) => button.addEventListener("click", () => 
 if ("IntersectionObserver" in window && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
   document.documentElement.classList.add("motion-ready"); const observer = new IntersectionObserver((entries, observer) => { entries.forEach((entry) => { if (entry.isIntersecting) { entry.target.classList.add("is-visible"); observer.unobserve(entry.target); } }); }, { threshold: 0.08 }); $$(".reveal").forEach((element) => observer.observe(element));
 }
-if (TESTIMONIALS.length) { const container = $("#testimonials-container"); container.replaceChildren(); TESTIMONIALS.forEach((testimonial) => { const block = document.createElement("figure"); const quote = document.createElement("blockquote"); const author = document.createElement("figcaption"); quote.className = "testimonial-quote"; author.className = "testimonial-author"; quote.textContent = testimonial.text; author.textContent = testimonial.author; block.append(quote, author); container.append(block); }); }
+// Las reseñas públicas se cargan desde Firestore; TESTIMONIALS permite conservar textos autorizados.
+initializeReviews({openDialog, testimonials:TESTIMONIALS});
 $("#year").textContent = new Date().getFullYear();
 
 $("#browse-products").addEventListener("click",()=>{orderDialog.close();showCategories(false);$("#menu").scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});});
@@ -459,5 +469,11 @@ initializeAccount({openDialog,onProfile(user,profile){
     for(const [field,key] of [["customer","name"],["phone","phone"],["address","address"]])if(!orderForm.elements[field].value)orderForm.elements[field].value=profile[key] || "";
   }
   updateDelivery();renderCart();
+  document.dispatchEvent(new CustomEvent("pacos:session-changed"));
 }}).catch(()=>{});
 if("ResizeObserver" in window)new ResizeObserver(()=>document.documentElement.style.setProperty("--header-offset", `${header.getBoundingClientRect().height+16}px`)).observe(header);
+
+// La barra puede crecer con texto ampliado: reserva su altura real debajo del footer.
+if ("ResizeObserver" in window) new ResizeObserver(([entry]) => {
+  document.documentElement.style.setProperty("--cart-clearance", (entry.target.getBoundingClientRect().height + 40) + "px");
+}).observe($("#cart-bar"));

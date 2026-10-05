@@ -69,3 +69,27 @@ test('Carrito completo con 174 opciones válidas no pierde funcionalidad',async(
   const subtotal=options.reduce((sum,p)=>sum+p.price,0);
   await assertSucceeds(setDoc(doc(user(),'orders','full-cart'),{...order(),products:options.map(p=>p.key),quantities:options.map(()=>1),unitPrices:options.map(p=>p.price),subtotal,total:subtotal+5000}));
 });
+
+const review=()=>({uid:'alice',name:'Ana Prueba',text:'Una experiencia de prueba local.',rating:4,photo:'',createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+test('Reseñas públicas con consultas limitadas; datos privados siguen cerrados',async()=>{
+  await setDoc(doc(user(),'reviews','alice'),review());const guest=env.unauthenticatedContext().firestore();
+  await assertSucceeds(getDoc(doc(guest,'reviews','alice')));
+  await assertSucceeds(getDocs(query(collection(guest,'reviews'),orderBy('updatedAt','desc'),limit(12))));
+  await assertFails(getDocs(collection(guest,'reviews')));await assertFails(getDocs(query(collection(guest,'reviews'),limit(13))));
+  await assertFails(getDoc(doc(guest,'users','alice')));await assertFails(getDoc(doc(guest,'orders','missing')));
+});
+test('Reseñas: solo correo verificado, una por UID, edición y borrado propios',async()=>{
+  const ref=doc(user(),'reviews','alice');
+  await assertFails(setDoc(doc(env.unauthenticatedContext().firestore(),'reviews','alice'),review()));
+  await assertFails(setDoc(doc(user('alice',false),'reviews','alice'),review()));
+  await assertFails(setDoc(doc(user(),'reviews','other-id'),review()));await assertSucceeds(setDoc(ref,review()));
+  await assertSucceeds(updateDoc(ref,{text:'Comentario editado en prueba.',rating:5,updatedAt:serverTimestamp()}));
+  await assertFails(updateDoc(doc(user('bob'),'reviews','alice'),{text:'Texto ajeno de prueba.',updatedAt:serverTimestamp()}));
+  await assertFails(deleteDoc(doc(user('bob'),'reviews','alice')));await assertSucceeds(deleteDoc(ref));
+});
+test('Reseñas: valida estrellas, nombres, comentario, foto y ausencia de datos privados',async()=>{
+  const ref=doc(user(),'reviews','alice');
+  for(const changes of [{rating:0},{rating:6},{rating:2.5},{rating:'5'},{name:'A'},{name:'x'.repeat(51)},{text:'corto'},{text:'x'.repeat(701)},{photo:'https://example.test/photo.jpg'},{photo:'data:image/svg+xml;base64,AAAA'},{photo:'data:image/jpeg;base64,'+'A'.repeat(88000)},{email:'private@example.test'},{phone:'3132009287'},{uid:'bob'},{createdAt:new Date(0)},{updatedAt:new Date(0)}])await assertFails(setDoc(ref,{...review(),...changes}));
+  await assertSucceeds(setDoc(ref,{...review(),photo:'data:image/jpeg;base64,/9j/AAAA=='}));
+  await assertFails(updateDoc(ref,{createdAt:serverTimestamp(),updatedAt:serverTimestamp()}));
+});

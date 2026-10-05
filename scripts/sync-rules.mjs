@@ -59,6 +59,28 @@ service cloud.firestore {
       allow create: if signedIn() && request.auth.token.email_verified == true && validOrder(request.resource.data);
       allow update, delete: if false;
     }
+    // Solo esta colección contiene contenido público autorizado al publicar una reseña.
+    function validReview(d) {
+      return d.keys().hasAll(['uid','name','text','rating','photo','createdAt','updatedAt'])
+        && d.keys().hasOnly(['uid','name','text','rating','photo','createdAt','updatedAt'])
+        && d.uid == request.auth.uid
+        && shortText(d.name,50) && d.name.size() >= 2
+        && shortText(d.text,700) && d.text.size() >= 10
+        && d.rating is int && d.rating >= 1 && d.rating <= 5
+        && shortText(d.photo,88000)
+        && (d.photo == '' || d.photo.matches('^data:image/jpeg;base64,[A-Za-z0-9+/=]+$'))
+        && d.createdAt is timestamp && d.updatedAt is timestamp
+        && d.updatedAt == request.time;
+    }
+    match /reviews/{uid} {
+      allow get: if true;
+      allow list: if request.query.limit <= 12;
+      allow create: if owner(uid) && request.auth.token.email_verified == true
+        && validReview(request.resource.data) && request.resource.data.createdAt == request.time;
+      allow update: if owner(uid) && request.auth.token.email_verified == true
+        && validReview(request.resource.data) && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if owner(uid);
+    }
     match /{document=**} { allow read, write: if false; }
   }
 }

@@ -7,5 +7,5 @@ execFileSync(process.execPath,[fileURLToPath(new URL('sync-rules.mjs',import.met
 const publicDir=new URL('public/',root);
 fs.mkdirSync(publicDir,{recursive:true});
 // Lista explícita: las credenciales CLI, respaldos y archivos de desarrollo no se publican.
-for(const name of ['index.html','style.css','script.js','catalog.js','account.js','firebase-service.js','firebase-config.js'])fs.copyFileSync(new URL(name,root),new URL(name,publicDir));
+for(const name of ['index.html','style.css','script.js','catalog.js','reviews.js','account.js','firebase-service.js','firebase-config.js'])fs.copyFileSync(new URL(name,root),new URL(name,publicDir));
 console.log('Sitio preparado en public/.');
